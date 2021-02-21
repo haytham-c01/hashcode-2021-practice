@@ -1,0 +1,33 @@
+        val sortedPizzas = input.pizzas.sortedByDescending {it.ingredients.size }.toMutableSet()
+        val orderedPizzas= mutableListOf(sortedPizzas.first())
+        sortedPizzas.remove(sortedPizzas.first())
+
+        while (orderedPizzas.size< input.pizzas.size){
+            val lastPizza= orderedPizzas.last()
+            var maxSimilarityScore= sortedPizzas.first().similarityScoreWith(lastPizza)
+            var maxSimilarityScorePizza = sortedPizzas.first()
+
+            for (pizza in sortedPizzas){
+                if(maxSimilarityScore >= pizza.ingredients.size)break
+
+                val score= pizza.similarityScoreWith(lastPizza)
+                if(score > maxSimilarityScore){
+                    maxSimilarityScore= score
+                    maxSimilarityScorePizza= pizza
+                }
+            }
+
+            sortedPizzas.remove(maxSimilarityScorePizza)
+            orderedPizzas.add(maxSimilarityScorePizza)
+            println(orderedPizzas.size)
+        }
+
+        println(orderedPizzas)
+
+
+
+    private fun Pizza.similarityScoreWith(pizza: Pizza): Int{
+       val commonIngredientsCount= ingredients.intersect(pizza.ingredients).size
+
+        return commonIngredientsCount - (ingredients.size - commonIngredientsCount)
+    }

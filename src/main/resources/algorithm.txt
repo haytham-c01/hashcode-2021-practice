@@ -1,0 +1,41 @@
+
+
+given: a map of ingredients (as a key) and a list of pizzas which include these ingredients (as a value)
+maintaining: a map of pizza (as a key) and its usage state (used or not)(as a value)
+
+while there is unused pizza
+    1- find a pizza delivery
+    2- assign the pizza delivery to a team with the correspond size
+repeat
+
+where
+- pizza delivery: is the group of pizza that is delivered to a team (where both group and team sizes limited to 2-4)
+
+================ step 1 ===================
+find the best pizza group for a specific team
+
+stating facts
+- the best score is the lowest (aiming for 0 which mean there is no duplicate ingredients)
+- the algorithm should prioritize satisfying bigger teams first since its more difficult
+
+2.1- create an empty list of used ingredients
+2.2- initialize it with the used ingredients of a selected pizza TODO improve
+2.2- while(pizza count < max required && and there is remaining pizza)
+        - if (there is unused ingredients left)
+            - selected a unused pizza TODO improve
+            - add its ingredients to used list
+        - else if (pizza count is valid) return the pizzaGroup
+        - else
+            - find a unused pizza with the minimum count of used ingredients TODO implement
+            - add its ingredients to used list
+2.3- return the pizza group
+
+where
+- max required pizza count: is size of maximum team which still require pizza
+- valid pizza count: is if there is team of that size still require pizza
+
+
+
+
+
+
