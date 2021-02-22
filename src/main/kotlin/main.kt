@@ -14,22 +14,22 @@ private val inputFiles = listOf(
 
 private val outFiles = listOf(
     File("${outDirectory}a.out"),
-        File("${outDirectory}b.out"),
-        File("${outDirectory}c.out"),
-        File("${outDirectory}d.out"),
-        File("${outDirectory}e.out"),
+    File("${outDirectory}b.out"),
+    File("${outDirectory}c.out"),
+    File("${outDirectory}d.out"),
+    File("${outDirectory}e.out"),
 )
 
 fun main(args: Array<String>) {
     inputFiles.forEachIndexed { index, file ->
-        val startTime= System.currentTimeMillis()
+        val startTime = System.currentTimeMillis()
 
         val input = readInput(file)
         val output = Processor().process(input, index == 2)
         outFiles[index].saveOutput(output)
 
-        val endTime= System.currentTimeMillis()
-        val elapsedTime= (endTime- startTime) /1000
+        val endTime = System.currentTimeMillis()
+        val elapsedTime = (endTime - startTime) / 1000
         println("${file.name} -> completed in $elapsedTime seconds.")
     }
 }
