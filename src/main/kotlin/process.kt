@@ -3,33 +3,29 @@ import java.util.*
 class Processor {
     private val ingredientsMap = mutableMapOf<String, LinkedList<Pizza>>()
     private val waitingTeamsCount = mutableMapOf<Int, Int>()
-    private val servedTeamsPizza = mutableListOf<List<Pizza>>()
-    private val usedPizza = mutableSetOf<Pizza>()
-    private val unusedPizza = mutableSetOf<Pizza>()
+    private val pizzaDeliveries = mutableListOf<List<Pizza>>()
+    private lateinit var unusedPizza: MutableList<Pizza>
     private var greedy = false
 
-    private fun weCanServeMore() = (4 downTo 2).sumBy { waitingTeamsCount[it]!! } > 0 && unusedPizza.size > 0
-
-    fun process(input: Input, greedy:Boolean): Output {
-        this.greedy= greedy
-        setIngredientsMap(input)
-        setUnusedPizzaSet(input)
-        setWaitingTeamsCount(input)
+    fun process(input: Input, greedy: Boolean): Output {
+        initData(input, greedy)
 
         while (weCanServeMore()) {
-            val pizzaDelivery = findPizzaDeliveryGreedy()
+            val pizzaDelivery = findPizzaDelivery()
 
             if (pizzaDelivery.size.isValidPizzaCount()) {
                 waitingTeamsCount[pizzaDelivery.size] = waitingTeamsCount[pizzaDelivery.size]!! - 1
-                servedTeamsPizza.add(pizzaDelivery.toList())
+                pizzaDeliveries.add(pizzaDelivery.toList())
             }
         }
 
         return getOutput()
     }
 
+    private fun weCanServeMore() = (4 downTo 2).sumBy { waitingTeamsCount[it]!! } > 0 && unusedPizza.size > 0
+
     private fun getOutput() = Output(
-        teamsPizza = servedTeamsPizza
+        teamsPizza = pizzaDeliveries
             .filter {
                 !it.isNullOrEmpty()
             }
@@ -41,42 +37,37 @@ class Processor {
             }
     )
 
-    private fun findPizzaDeliveryGreedy(): Set<Pizza> {
-        // initialize used ingredients
-        val usedIngredients = mutableSetOf<String>()
-        // initialize pizza delivery
-        val pizzaDelivery = mutableSetOf<Pizza>()
-        //var pizzaDeliveryWaste= 0
+    private fun findPizzaDelivery(
+        usedIngredients: MutableSet<String> = mutableSetOf(),
+        pizzaDelivery: MutableSet<Pizza> = mutableSetOf(),
+        pizzaUsedIngredientsCount: MutableMap<Pizza, Int> = mutableMapOf(),
+    ): Set<Pizza> {
+        if (pizzaDelivery.size == maxRequiredPizzaCount()) return pizzaDelivery
+        if (unusedPizza.isEmpty()) return pizzaDelivery
 
-        val pizzaUsedIngredientsCount = mutableMapOf<Pizza, Int>()
+        val pizza = if (greedy) selectPizzaGreedy(pizzaUsedIngredientsCount)
+        else selectPizza(pizzaUsedIngredientsCount)
+        if (pizzaWasted(pizza, pizzaUsedIngredientsCount, pizzaDelivery)) return pizzaDelivery
 
-        while (pizzaDelivery.size < maxRequiredPizzaCount() && unusedPizza.isNotEmpty()) {
-            val pizza = if (greedy) selectPizzaGreedy(pizzaUsedIngredientsCount)
-            else selectPizza(pizzaUsedIngredientsCount)
+        val selectedPizza = pizza.usePizza()
+        pizzaUsedIngredientsCount.remove(selectedPizza)
+        pizzaDelivery.add(selectedPizza)
 
-            if (itIsZeroValuePizza(pizza, pizzaUsedIngredientsCount, pizzaDelivery)) break
+        pizza.ingredients
+            .filter { !usedIngredients.contains(it) }
+            .mapNotNull { ingredientsMap[it] }
+            .flattenLinkedList()
+            .forEach {
+                pizzaUsedIngredientsCount[it] = (pizzaUsedIngredientsCount[it] ?: 0) + 1
+            }
 
-            val selectedPizza = pizza.usePizza()
-            pizzaUsedIngredientsCount.remove(selectedPizza)
-
-            pizza.ingredients
-                .filter { !usedIngredients.contains(it) }
-                .mapNotNull { ingredientsMap[it] }
-                .flattenLinkedList()
-                .forEach {
-                        pizzaUsedIngredientsCount[it] = (pizzaUsedIngredientsCount[it]?:0) + 1
-                }
-
-            pizzaDelivery.add(selectedPizza)
-            usedIngredients.addAll(selectedPizza.ingredients)
-        }
-
-
-        return pizzaDelivery
+        usedIngredients.addAll(selectedPizza.ingredients)
+        return findPizzaDelivery(usedIngredients, pizzaDelivery, pizzaUsedIngredientsCount)
     }
 
+
     private fun selectPizzaGreedy(pizzaUsedIngredientsCount: MutableMap<Pizza, Int>): Pizza {
-        var selectedPizza = unusedPizza.first()
+        var selectedPizza: Pizza = unusedPizza.first()
         if (pizzaUsedIngredientsCount[selectedPizza] ?: 0 == 0) return selectedPizza
 
         unusedPizza.forEach { pizza ->
@@ -94,7 +85,7 @@ class Processor {
         return selectedPizza
     }
 
-    private fun Pizza.getValue(usedIngredients: Int) = ingredientsCount - usedIngredients * 2
+    private fun Pizza.getValue(usedIngredients: Int) = ingredientsCount - usedIngredients * 4.5
 
     private fun selectPizza(
         pizzaWithUsedIngredients: MutableMap<Pizza, Int>
@@ -103,23 +94,12 @@ class Processor {
             !pizzaWithUsedIngredients.contains(it)
         }
     } else {
-
         // select the pizza with minimum waste
-        pizzaWithUsedIngredients.minByOrNull {
-            it.value
-        }?.key!!
-
-        // alternative solution select the pizza with most value
-        // most value: most unused ingredients
-        //                val selectedPizza= pizzaUsedIngredientsCount.toList().maxByOrNull {
-        //                    it.first.ingredientsCount - it.second
-        //                }?.apply {
-        //                    println("${first} - ${second} ")
-        //                }!!.first
+        pizzaWithUsedIngredients.minByOrNull { it.value }?.key!!
 
     }
 
-    private fun itIsZeroValuePizza(
+    private fun pizzaWasted(
         selectedPizza: Pizza,
         pizzaUsedIngredientsCount: MutableMap<Pizza, Int>,
         pizzaDelivery: MutableSet<Pizza>
@@ -139,13 +119,11 @@ class Processor {
 
     private fun Pizza.usePizza(): Pizza {
         unusedPizza.remove(this)
-        usedPizza.add(this)
 
         // remove the pizza from ingredientsMap
         // also remove the ingredient key if its empty
 
         ingredients.forEach {
-
             ingredientsMap[it]?.remove(this)
             if (ingredientsMap[it].isNullOrEmpty()) {
                 ingredientsMap.remove(it)
@@ -156,19 +134,26 @@ class Processor {
         return this
     }
 
-    private fun setWaitingTeamsCount(input: Input) {
+
+    private fun initData(input: Input, greedy: Boolean) {
+        this.greedy = greedy
+
         waitingTeamsCount[2] = input.twoPersonTeams
         waitingTeamsCount[3] = input.threePersonTeams
         waitingTeamsCount[4] = input.fourPersonTeams
-    }
 
+        unusedPizza = input.pizzas
+            .sortedByDescending { it.ingredientsCount }
+            .toMutableList()
 
-    private fun setUnusedPizzaSet(input: Input) {
-        unusedPizza.addAll(input.pizzas.sortedByDescending { it.ingredients.size })
-    }
+//        unusedPizza= input.pizzas.toSortedSet { p1, p2 ->
+//            when{
+//                p1.ingredientsCount > p2.ingredientsCount -> -1
+//                p1.ingredientsCount < p2.ingredientsCount -> 1
+//                else -> if(p1.id==p2.id) 0 else 1
+//            }
+//        }
 
-
-    private fun setIngredientsMap(input: Input) {
         input.pizzas.forEach { pizza ->
             pizza.ingredients.forEach { ingredient ->
                 val ingredientPizzas = ingredientsMap.getOrDefault(ingredient, LinkedList())
@@ -176,7 +161,6 @@ class Processor {
             }
         }
     }
-
 }
 
 
