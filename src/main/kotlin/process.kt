@@ -1,26 +1,84 @@
 import java.util.*
+import kotlin.math.sqrt
 
 class Processor {
     private val ingredientsMap = mutableMapOf<String, LinkedList<Pizza>>()
     private val waitingTeamsCount = mutableMapOf<Int, Int>()
-    private val pizzaDeliveries = mutableListOf<List<Pizza>>()
+    private val pizzaDeliveries = mutableListOf<MutableList<Pizza>>()
     private lateinit var unusedPizza: MutableList<Pizza>
     private var greedy = false
 
     fun process(input: Input, greedy: Boolean): Output {
         initData(input, greedy)
 
+        // 1. find solution
         while (weCanServeMore()) {
             val pizzaDelivery = findPizzaDelivery()
 
             if (pizzaDelivery.size.isValidPizzaCount()) {
                 waitingTeamsCount[pizzaDelivery.size] = waitingTeamsCount[pizzaDelivery.size]!! - 1
-                pizzaDeliveries.add(pizzaDelivery.toList())
+                pizzaDeliveries.add(pizzaDelivery.toMutableList())
             }
         }
 
+        // 2. optimize results
+        val teamsPizza = pizzaDeliveries.groupBy { it.size }
+
+        // find if converting 2,4 deliveries into a 3,3 would improve score
+        teamsPizza[4]?.forEach { fourSizeDelivery ->
+            if (teamsPizza[2].isNullOrEmpty() || waitingTeamsCount[3]!! <= 0) return@forEach
+            val fourSizedScore = fourSizeDelivery.deliveryScore()
+            var bestPizza: Pair<Int, Pizza>? = null
+            var bestDeliveryIndex = -1
+
+            teamsPizza[2]?.forEachIndexed { innerIndex, twoSizedDelivery ->
+                val twoSizedScore = fourSizeDelivery.deliveryScore()
+                val optimizationPizza =
+                    findOptimizationPizza(fourSizeDelivery, twoSizedDelivery, fourSizedScore + twoSizedScore)
+
+                if (optimizationPizza != null) {
+                    if ((bestPizza == null && bestDeliveryIndex == -1) || optimizationPizza.first > bestPizza!!.first) {
+                        bestPizza = optimizationPizza
+                        bestDeliveryIndex = innerIndex
+                    }
+                }
+            }
+
+            if (bestPizza != null && bestDeliveryIndex != -1) {
+                teamsPizza[2]!![bestDeliveryIndex].add(bestPizza!!.second)
+                fourSizeDelivery.remove(bestPizza!!.second)
+            }
+        }
+
+
         return getOutput()
     }
+
+    private fun findOptimizationPizza(
+        fourSizeDelivery: List<Pizza>,
+        twoSizedDelivery: List<Pizza>,
+        combinedScore: Int
+    ): Pair<Int, Pizza>? {
+        var bestScore = combinedScore
+        var selectedPizza: Pizza? = null
+
+        fourSizeDelivery.forEach { pizza ->
+            val newFourSized = fourSizeDelivery.toMutableList().apply { remove(pizza) }
+            val newTwoSized = twoSizedDelivery.toMutableList().apply { add(pizza) }
+
+            val newScore = newFourSized.deliveryScore() + newTwoSized.deliveryScore()
+
+            if (newScore > bestScore) {
+                bestScore = newScore
+                selectedPizza = pizza
+            }
+        }
+
+        return if (selectedPizza != null) Pair(bestScore, selectedPizza!!) else null
+    }
+
+
+    fun List<Pizza>.deliveryScore() = sqrt(map { it.ingredients }.flatten().distinct().size.toDouble()).toInt()
 
     private fun weCanServeMore() = (4 downTo 2).sumBy { waitingTeamsCount[it]!! } > 0 && unusedPizza.size > 0
 
